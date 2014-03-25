@@ -1,1 +1,2 @@
-from .mailst import Column, Student, send
+from .mailst import (Column, EmailColumn, NameColumn, GradeColumn, FileColumn,
+                     Recipient, Mailer, )
