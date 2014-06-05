@@ -1,0 +1,8 @@
+mailst: send personalized emails to your students.
+
+Python3 library to send emails to your students (with their grades or
+any other kind of information.
+
+I'm currently testing it in the courses I teach. When I feel it is
+stable enough I will doucument the library, share some examples and
+officially release it.
