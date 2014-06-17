@@ -84,11 +84,18 @@ class GradeColumn(Column):
     @staticmethod
     def grade(value):
         if value == '':
-            return None
-        elif ',' in value:
-            return decimal.Decimal(re.sub(',', '.', value))
+            result = None
         else:
-            return decimal.Decimal(value)
+            original_value = value
+            if ',' in value:
+                value = re.sub(',', '.', value)
+            try:
+                result = decimal.Decimal(value)
+            except decimal.InvalidOperation as e:
+                print('Wrong decimal format: {}'.format(repr(original_value)),
+                      file=sys.stderr)
+                raise e
+        return result
 
 
 class FileColumn(Column):
