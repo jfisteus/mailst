@@ -178,13 +178,28 @@ class Recipient:
 
 class Mailer:
     def __init__(self, smtp_server, subject, template_text, recipients,
-                 from_field, cc_field=None):
+                 from_field, cc_field=None, cmd_args=None):
         self.smtp_server = smtp_server
         self.subject = subject
         self.template_text = template_text
         self.recipients = recipients
         self.from_field = from_field
         self.cc_field = cc_field
+        self.cmd_args = cmd_args
+
+    def process(self):
+        simulate = not self.cmd_args.send_emails
+        if self.cmd_args.send_to_recipients:
+            alt_to_field = None
+        else:
+            alt_to_field = self.from_field
+        if not self.cmd_args.just_print:
+            self.send(simulate=simulate, print_mails=False,
+                      alt_to_field=alt_to_field,
+                      max_num_emails=self.cmd_args.max_num_emails,
+                      delay=self.cmd_args.delay)
+        else:
+            self.test(max_num_emails=self.cmd_args.max_num_emails)
 
     def send(self, simulate=True, print_mails=False, alt_to_field=None,
              max_num_emails=0, delay=None):
