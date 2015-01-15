@@ -95,12 +95,12 @@ class GradeColumn(Column):
                 msg = 'Wrong decimal format: {}'.format(repr(original_value))
                 raise ValueError(msg)
             if self.max_grade is not None and result > self.max_grade:
-                msg = 'Grade {} greater than its maximum value {}'\
-                      .format(result, self.max_grade)
+                msg = 'Grade {} for {} greater than its maximum value {}'\
+                      .format(result, self.key, self.max_grade)
                 raise ValueError(msg)
             if self.min_grade is not None and result < self.min_grade:
-                msg = 'Grade {} lower than its minimum value {}'\
-                      .format(result, self.min_grade)
+                msg = 'Grade {} for {} lower than its minimum value {}'\
+                      .format(result, self.key, self.min_grade)
                 raise ValueError(msg)
         return result
 
