@@ -28,10 +28,14 @@ import sys
 
 
 class Column:
-    def __init__(self, key, is_email=False, is_file=False):
+    def __init__(self, key, is_email=False, is_file=False, is_full_name=False):
+        if sum(bool(x) for x in (is_email, is_file, is_full_name)) > 1:
+            raise ValueError('is_full_name, is_email and is_file are '
+                             'incompatible')
         self.key = key
-        self.is_email=False
+        self.is_email = is_email
         self.is_file = is_file
+        self.is_full_name = is_full_name
 
     def as_dict(self, value):
         return {self.key: value}
@@ -43,8 +47,8 @@ class EmailColumn(Column):
 
 
 class NameColumn(Column):
-    def __init__(self, key):
-        super().__init__(key)
+    def __init__(self, key, is_full_name=False):
+        super().__init__(key, is_full_name=is_full_name)
 
     def as_dict(self, name):
         d = {self.key: name}
@@ -68,6 +72,11 @@ class NameColumn(Column):
                 parts[j] = parts[j].capitalize()
             names[i] = '-'.join(parts)
         return ' '.join(names).strip()
+
+
+class FullNameColumn(NameColumn):
+    def __init__(self, key):
+        super().__init__(key, is_full_name=True)
 
 
 class GradeColumn(Column):
@@ -111,7 +120,7 @@ class FileColumn(Column):
         self.base_path = base_path
         self.filename_template = filename_template
         self.content_type = content_type
-        super().__init__(key, self._get_filename, is_file=True)
+        super().__init__(key, is_file=True)
 
     def as_dict(self, value):
         return {self.key: AttachmentFile(self._get_filename(value),
@@ -152,6 +161,7 @@ class AttachmentFile:
 
 class Recipient:
     def __init__(self, columns=None, values=None):
+        self.full_name = None
         self.email = None
         self.file_columns = []
         if columns and values:
@@ -161,19 +171,27 @@ class Recipient:
     def set_column(self, column, value):
         for key, value in column.as_dict(value).items():
             setattr(self, key, value)
-        if column.is_email:
+        if column.is_full_name:
+            self.full_name = value
+        elif column.is_email:
             self.email = value
-        if column.is_file:
+        elif column.is_file:
             self.file_columns.append(column)
 
     def exclude(self):
         return False
 
+    @property
     def pretty_email(self):
-        return self.email
+        if not self.email:
+            raise ValueError('The user has no email')
+        if self.full_name:
+            return '{} <{}>'.format(self.full_name, self.email)
+        else:
+            return self.email
 
     def __str__(self):
-        return 'Email address: ' + self.email
+        return self.pretty_email
 
 
 class Mailer:
@@ -212,19 +230,19 @@ class Mailer:
             if not simulate:
                 smtp_client.send_message(message)
                 if alt_to_field is None:
-                    print('Email sent to:', recipient.pretty_email(),
+                    print('Email sent to:', recipient.pretty_email,
                           file=sys.stderr)
                 else:
                     print('Email sent to:', alt_to_field,
-                          'instead of', recipient.pretty_email(),
+                          'instead of', recipient.pretty_email,
                           file=sys.stderr)
             else:
                 if alt_to_field is None:
                     print('Email simulated (not sent) to:',
-                          recipient.pretty_email(), file=sys.stderr)
+                          recipient.pretty_email, file=sys.stderr)
                 else:
                     print('Email simulated (not sent) to:', alt_to_field,
-                          'instead of', recipient.pretty_email(),
+                          'instead of', recipient.pretty_email,
                           file=sys.stderr)
             num_emails += 1
             if max_num_emails and max_num_emails <= num_emails:
@@ -256,7 +274,7 @@ class Mailer:
         message['Subject'] = self.subject
         message['From'] = self.from_field
         if not alt_to_field:
-            message['To'] = recipient.pretty_email()
+            message['To'] = recipient.pretty_email
         else:
             message['To'] = alt_to_field
         if self.cc_field:
@@ -276,7 +294,7 @@ class Mailer:
                 message['Attachments'].append(getattr(recipient, column.key))
         message['Subject'] = self.subject
         message['From'] = self.from_field
-        message['To'] = recipient.pretty_email()
+        message['To'] = recipient.pretty_email
         if self.cc_field:
             message['Cc'] = self.cc_field
         main_text = ('Recipient: {}\n'
