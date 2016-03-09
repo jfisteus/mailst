@@ -100,7 +100,7 @@ class GradeColumn(Column):
                 value = re.sub(',', '.', value)
             try:
                 result = decimal.Decimal(value)
-            except decimal.InvalidOperation as e:
+            except decimal.InvalidOperation:
                 msg = 'Wrong decimal format: {}'.format(repr(original_value))
                 raise ValueError(msg)
             if self.max_grade is not None and result > self.max_grade:
