@@ -19,6 +19,7 @@ import re
 import decimal
 import smtplib
 import email.encoders
+import email.utils
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
@@ -159,10 +160,22 @@ class AttachmentFile:
         return part
 
 
-class Recipient:
+class Address:
+    def __init__(self, email=None, full_name=None):
+        self._email = email
+        self.full_name = full_name
+
+    @property
+    def email(self):
+        if not self._email:
+            raise ValueError('The user has no email')
+        return email.utils.formataddr((self.full_name, self._email))
+
+
+class Recipient(Address):
     def __init__(self, columns=None, values=None):
         self.full_name = None
-        self.email = None
+        self._email = None
         self.file_columns = []
         if columns and values:
             for column, value in zip(columns, values):
@@ -170,79 +183,71 @@ class Recipient:
 
     def set_column(self, column, value):
         for key, value in column.as_dict(value).items():
-            setattr(self, key, value)
+            if key != 'email':
+                setattr(self, key, value)
         if column.is_full_name:
             self.full_name = value
         elif column.is_email:
-            self.email = value
+            self._email = value
         elif column.is_file:
             self.file_columns.append(column)
 
     def exclude(self):
         return False
 
-    @property
-    def pretty_email(self):
-        if not self.email:
-            raise ValueError('The user has no email')
-        if self.full_name:
-            return '{} <{}>'.format(self.full_name, self.email)
-        else:
-            return self.email
-
     def __str__(self):
-        return self.pretty_email
+        return self.email
 
 
 class Mailer:
     def __init__(self, smtp_server, subject, template_text, recipients,
-                 from_field, cc_field=None, cmd_args=None):
+                 from_address, cc_addresses=None, cmd_args=None):
         self.smtp_server = smtp_server
         self.subject = subject
         self.template_text = template_text
         self.recipients = recipients
-        self.from_field = from_field
-        self.cc_field = cc_field
+        self.from_address = from_address
+        self.cc_addresses = cc_addresses
         self.cmd_args = cmd_args
 
     def process(self):
         simulate = not self.cmd_args.send_emails
         if self.cmd_args.send_to_recipients:
-            alt_to_field = None
+            alt_to_address = None
         else:
-            alt_to_field = self.from_field
+            alt_to_address = self.from_address
         if not self.cmd_args.just_print:
             self.send(simulate=simulate, print_mails=False,
-                      alt_to_field=alt_to_field,
+                      alt_to_address=alt_to_address,
                       max_num_emails=self.cmd_args.max_num_emails,
                       delay=self.cmd_args.delay)
         else:
             self.test(max_num_emails=self.cmd_args.max_num_emails)
 
-    def send(self, simulate=True, print_mails=False, alt_to_field=None,
+    def send(self, simulate=True, print_mails=False, alt_to_address=None,
              max_num_emails=0, delay=None):
         smtp_client = smtplib.SMTP(self.smtp_server)
         num_emails = 0
         for recipient in [r for r in self.recipients if not r.exclude()]:
-            message = self._build_message(recipient, alt_to_field)
+            message = self._build_message(recipient, alt_to_address)
             if print_mails:
                 print(message)
             if not simulate:
                 smtp_client.send_message(message)
-                if alt_to_field is None:
-                    print('Email sent to:', recipient.pretty_email,
-                          file=sys.stderr)
+                if alt_to_address is None:
+                    print('Email sent to:', recipient.email, file=sys.stderr)
                 else:
-                    print('Email sent to:', alt_to_field,
-                          'instead of', recipient.pretty_email,
+                    print('Email sent to:', alt_to_address.email,
+                          'instead of', recipient.email,
                           file=sys.stderr)
             else:
-                if alt_to_field is None:
+                if alt_to_address is None:
                     print('Email simulated (not sent) to:',
-                          recipient.pretty_email, file=sys.stderr)
+                          recipient.email, file=sys.stderr)
                 else:
-                    print('Email simulated (not sent) to:', alt_to_field,
-                          'instead of', recipient.pretty_email,
+                    print('Email simulated (not sent) to:',
+                          alt_to_address.email,
+                          'instead of', recipient.email,
                           file=sys.stderr)
             num_emails += 1
             if max_num_emails and max_num_emails <= num_emails:
@@ -262,7 +267,7 @@ class Mailer:
         for recipient in [s for s in self.recipients if s.exclude()]:
             print('Excluded: ', recipient)
 
-    def _build_message(self, recipient, alt_to_field):
+    def _build_message(self, recipient, alt_to_address):
         text_part = MIMEText(self.template_text.format(recipient))
         if len(recipient.file_columns) == 0:
             message = text_part
@@ -272,18 +277,18 @@ class Mailer:
             for column in recipient.file_columns:
                 message.attach(getattr(recipient, column.key).as_mime_part())
         message['Subject'] = self.subject
-        message['From'] = self.from_field
-        if not alt_to_field:
-            message['To'] = recipient.pretty_email
+        message['From'] = self.from_address.email
+        if not alt_to_address:
+            message['To'] = recipient.email
         else:
-            message['To'] = alt_to_field
-        if self.cc_field:
-            message['Cc'] = self.cc_field
+            message['To'] = alt_to_address.email
+        if self.cc_addresses:
+            message['Cc'] = ','.join(a.email for a in self.cc_addresses)
         return message
 
     def _build_test_message(self, recipient):
         message = {}
-        message['Recipient'] = str(recipient)
+        message['Recipient'] = recipient.email
         message['Attachments'] = []
         message['Body_text'] = self.template_text.format(recipient)
         if len(recipient.file_columns) == 0:
@@ -293,18 +298,22 @@ class Mailer:
             for column in recipient.file_columns:
                 message['Attachments'].append(getattr(recipient, column.key))
         message['Subject'] = self.subject
-        message['From'] = self.from_field
-        message['To'] = recipient.pretty_email
-        if self.cc_field:
-            message['Cc'] = self.cc_field
+        message['From'] = self.from_address.email
+        message['To'] = recipient.email
+        if self.cc_addresses:
+            message['Cc'] = ','.join(a.email for a in self.cc_addresses)
+        else:
+            message['Cc'] = ''
         main_text = ('Recipient: {}\n'
                      'Format: {}\n'
                      'From: {}\n'
                      'To: {}\n'
+                     'Cc: {}\n'
                      'Subject: {}\n\n'
                      '{}\n'
                      ).format(message['Recipient'], message['Type'],
                               message['From'], message['To'],
+                              message['Cc'],
                               message['Subject'], message['Body_text'])
         attachments = ''.join([('Attachment {0.filename} '
                                 '[{0.main_type}/{0.subtype}]'
