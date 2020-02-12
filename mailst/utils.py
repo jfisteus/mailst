@@ -16,33 +16,63 @@
 # <http://www.gnu.org/licenses/>.
 #
 
+
 def add_cmd_arguments(parser):
     """Add the standard mailst command-line arguments to an argparse parser.
 
        Returns the same parser object.
 
     """
-    parser.add_argument('--send-emails', default=False, action='store_true',
-                        help=('Really send the emails. By default they '
-                              'are not actually sent, although the messages '
-                              'are created and a connection to the SMTP '
-                              'server is established.'))
-    parser.add_argument('--send-to-recipients', default=False,
-                        action='store_true',
-                        help=('Really send the emails to the recipients '
-                              'instead of sending to the From field. '
-                              'They are sent to the From field if this option'
-                              'is not set.'))
-    parser.add_argument('-p', '--just-print', default=False,
-                        action='store_true',
-                        help=('Just print the emails to stdout (does neither '
-                              'send emails nor connect to the SMTP server.)'))
-    parser.add_argument('-m', '--max-num-emails', type=int,
-                        default=0,
-                        help=('Process no more than this number of emails '
-                              '(0 means no limit and is the default.)'))
-    parser.add_argument('-d', '--delay', type=float,
-                        default=None,
-                        help=('Delay in seconds between consecutive emails. '
-                              'By default, no delay is applied.'))
+    parser.add_argument(
+        "--send-emails",
+        default=False,
+        action="store_true",
+        help=(
+            "Really send the emails. By default they "
+            "are not actually sent, although the messages "
+            "are created and a connection to the SMTP "
+            "server is established."
+        ),
+    )
+    parser.add_argument(
+        "--send-to-recipients",
+        default=False,
+        action="store_true",
+        help=(
+            "Really send the emails to the recipients "
+            "instead of sending to the From field. "
+            "They are sent to the From field if this option"
+            "is not set."
+        ),
+    )
+    parser.add_argument(
+        "-p",
+        "--just-print",
+        default=False,
+        action="store_true",
+        help=(
+            "Just print the emails to stdout (does neither "
+            "send emails nor connect to the SMTP server.)"
+        ),
+    )
+    parser.add_argument(
+        "-m",
+        "--max-num-emails",
+        type=int,
+        default=0,
+        help=(
+            "Process no more than this number of emails "
+            "(0 means no limit and is the default.)"
+        ),
+    )
+    parser.add_argument(
+        "-d",
+        "--delay",
+        type=float,
+        default=None,
+        help=(
+            "Delay in seconds between consecutive emails. "
+            "By default, no delay is applied."
+        ),
+    )
     return parser
