@@ -62,6 +62,7 @@ class NameColumn(Column):
 
     _lowercase_n_re = re.compile(r"[^\A]Ñ")
 
+    @staticmethod
     def _uncapitalize_spanish(name):
         """From NAME SURNAME returns Name Surname"""
         names = [n.swapcase().capitalize() for n in name.split(" ")]
