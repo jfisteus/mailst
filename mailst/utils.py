@@ -1,5 +1,5 @@
 # Mailst: send personalized emails to your students
-# Copyright (C) 2014 Jesus Arias Fisteus
+# Copyright (C) 2014-2020 Jesus Arias Fisteus
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
