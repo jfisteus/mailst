@@ -280,10 +280,10 @@ class Mailer:
         message['From'] = self.from_address.email
         if not alt_to_address:
             message['To'] = recipient.email
+            if self.cc_addresses:
+                message['Cc'] = ','.join(a.email for a in self.cc_addresses)
         else:
             message['To'] = alt_to_address.email
-        if self.cc_addresses:
-            message['Cc'] = ','.join(a.email for a in self.cc_addresses)
         return message
 
     def _build_test_message(self, recipient):
