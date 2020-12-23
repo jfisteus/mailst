@@ -74,9 +74,10 @@ class FullNameColumn(NameColumn):
 
 
 class GradeColumn(Column):
-    def __init__(self, key, max_grade=None, min_grade=0.0):
+    def __init__(self, key, max_grade=None, min_grade=0.0, check_max=True):
         self.max_grade = max_grade
         self.min_grade = min_grade
+        self.check_max = check_max
         super().__init__(key)
 
     def as_dict(self, grade):
@@ -97,7 +98,11 @@ class GradeColumn(Column):
             except decimal.InvalidOperation:
                 msg = "Wrong decimal format: {}".format(repr(original_value))
                 raise ValueError(msg)
-            if self.max_grade is not None and result > self.max_grade:
+            if (
+                self.check_max
+                and self.max_grade is not None
+                and result > self.max_grade
+            ):
                 msg = "Grade {} for {} greater than its maximum value {}".format(
                     result, self.key, self.max_grade
                 )
