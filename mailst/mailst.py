@@ -88,7 +88,7 @@ class GradeColumn(Column):
 
     def grade(self, value):
         if value == "":
-            result = None
+            result = "-"
         else:
             original_value = value
             if "," in value:
