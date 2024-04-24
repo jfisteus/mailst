@@ -355,4 +355,8 @@ class Mailer:
                 for attachment in message["Attachments"]
             ]
         )
+        # Check that attachments can be read:
+        for attachment in message["Attachments"]:
+            with open(attachment.filename):
+                pass
         return "\n".join((main_text, attachments))
