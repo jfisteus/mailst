@@ -208,6 +208,7 @@ class Mailer:
         from_address,
         cc_addresses=None,
         cmd_args=None,
+        error_on_missing_attachments=True,
     ):
         self.smtp_server = smtp_server
         self.subject = subject
@@ -216,6 +217,7 @@ class Mailer:
         self.from_address = from_address
         self.cc_addresses = cc_addresses
         self.cmd_args = cmd_args
+        self.error_on_missing_attachments = error_on_missing_attachments
 
     def process(self):
         simulate = not self.cmd_args.send_emails
@@ -301,7 +303,19 @@ class Mailer:
             message = MIMEMultipart()
             message.attach(text_part)
             for column in recipient.file_columns:
-                message.attach(getattr(recipient, column.key).as_mime_part())
+                try:
+                    message.attach(getattr(recipient, column.key).as_mime_part())
+                except FileNotFoundError:
+                    if self.error_on_missing_attachments:
+                        raise
+                    else:
+                        print(
+                            (
+                                f"Warning: Attachment {getattr(recipient, column.key).filename} "
+                                f"not found for {column.key} in email to {recipient.email}"
+                            ),
+                            file=sys.stderr,
+                        )
         message["Subject"] = self.subject
         message["From"] = self.from_address.email
         if not alt_to_address:
@@ -347,16 +361,29 @@ class Mailer:
             message["Subject"],
             message["Body_text"],
         )
-        attachments = "".join(
+        # Check that attachments can be read:
+        attachments = []
+        attachments_missing = []
+        for attachment in message["Attachments"]:
+            try:
+                with open(attachment.filename):
+                    attachments.append(attachment)
+            except FileNotFoundError:
+                if self.error_on_missing_attachments:
+                    raise
+                else:
+                    attachments_missing.append(attachment)
+        attachments_text = "".join(
             [
-                ("Attachment {0.filename} " "[{0.main_type}/{0.subtype}]").format(
-                    attachment
+                (
+                    f"Attachment {attachment.filename} "
+                    f"[{attachment.main_type}/{attachment.subtype}]"
                 )
-                for attachment in message["Attachments"]
+                for attachment in attachments
             ]
         )
-        # Check that attachments can be read:
-        for attachment in message["Attachments"]:
-            with open(attachment.filename):
-                pass
-        return "\n".join((main_text, attachments))
+        attachments_missing_text = "".join(
+            f"[MISSING ATTACHMENT!] {attachment.filename}"
+            for attachment in attachments_missing
+        )
+        return "\n".join((main_text, attachments_text, attachments_missing_text))
