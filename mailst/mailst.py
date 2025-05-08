@@ -145,7 +145,7 @@ class AttachmentFile:
             self.subtype = parts[1]
         else:
             self.main_type = "application"
-            self.subtype = "octent-stream"
+            self.subtype = "octet-stream"
 
     def as_mime_part(self):
         part = MIMEBase(self.main_type, self.subtype)
