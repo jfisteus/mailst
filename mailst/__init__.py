@@ -17,14 +17,14 @@
 #
 
 
-from .mailst import (
+from .main import (
     Column,
     EmailColumn,
     NameColumn,
     GradeColumn,
     FileColumn,
-    Address,
     Recipient,
     Mailer,
 )
 from .utils import add_cmd_arguments
+from .address import Address
