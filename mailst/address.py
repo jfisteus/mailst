@@ -11,3 +11,9 @@ class Address:
         if not self.email:
             raise ValueError("The user has no email")
         return email.utils.formataddr((self.full_name, self.email))
+
+    def __eq__(self, other):
+        return isinstance(other, Address) and self.email == other.email
+
+    def __hash__(self):
+        return hash(self.email)

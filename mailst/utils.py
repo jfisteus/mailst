@@ -20,7 +20,7 @@
 def add_cmd_arguments(parser):
     """Add the standard mailst command-line arguments to an argparse parser.
 
-       Returns the same parser object.
+    Returns the same parser object.
 
     """
     parser.add_argument(
@@ -73,6 +73,27 @@ def add_cmd_arguments(parser):
         help=(
             "Delay in seconds between consecutive emails. "
             "By default, no delay is applied."
+        ),
+    )
+    parser.add_argument(
+        "-s",
+        "--send-only-to",
+        action="append",
+        default=[],
+        help=(
+            "Email address to send the emails to, "
+            "from the list of recipients "
+            "they would have been sent to if this option were not present. "
+            "This option can be used multiple times."
+        ),
+    )
+    parser.add_argument(
+        "-e",
+        "--exclude",
+        action="append",
+        default=[],
+        help=(
+            "Email address to be excluded. " "This option can be used multiple times."
         ),
     )
     return parser

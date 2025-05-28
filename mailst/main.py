@@ -203,15 +203,25 @@ class Mailer:
         cc_addresses=None,
         cmd_args=None,
         error_on_missing_attachments=True,
+        send_only_to=None,
+        exclude=None,
     ):
         self.smtp_server = smtp_server
         self.subject = subject
         self.template_text = template_text
-        self.recipients = recipients
+        self.recipients = list(recipients)
         self.from_address = from_address
         self.cc_addresses = cc_addresses
         self.cmd_args = cmd_args
         self.error_on_missing_attachments = error_on_missing_attachments
+        if send_only_to is None:
+            self.send_only_to = []
+        else:
+            self.send_only_to = list(send_only_to)
+        if exclude is None:
+            self.exclude = []
+        else:
+            self.exclude = list(exclude)
 
     def process(self):
         simulate = not self.cmd_args.send_emails
@@ -241,11 +251,7 @@ class Mailer:
         self._print_excluded()
         smtp_client = smtplib.SMTP(self.smtp_server)
         num_emails = 0
-        for recipient in [
-            r
-            for r in self.recipients
-            if not r.exclude() and not r.address in sent_log.log
-        ]:
+        for recipient in self._filter_recipients():
             message = self._build_message(recipient, alt_to_address)
             if print_mails:
                 print(message)
@@ -287,16 +293,24 @@ class Mailer:
     def test(self, max_num_emails=0):
         self._print_excluded()
         num_emails = 0
-        for recipient in [
-            r
-            for r in self.recipients
-            if not r.exclude() and not r.address in sent_log.log
-        ]:
+        for recipient in self._filter_recipients():
             print(self._build_test_message(recipient))
             print()
             num_emails += 1
             if max_num_emails and max_num_emails <= num_emails:
                 break
+
+    def _filter_recipients(self):
+        return [
+            r
+            for r in self.recipients
+            if (
+                not r.exclude()
+                and not r.address in sent_log.log
+                and (not self.send_only_to or r.address.email in self.send_only_to)
+                and r.address.email not in self.exclude
+            )
+        ]
 
     def _print_excluded(self):
         for recipient in [s for s in self.recipients if s.exclude()]:
