@@ -97,3 +97,19 @@ def add_cmd_arguments(parser):
         ),
     )
     return parser
+
+
+def col(letters: str) -> int:
+    """Convert a column name to a number.
+
+    For example, 'A' -> 0, 'B' -> 1, ..., 'Z' -> 25, 'AA' -> 26, etc.
+
+    """
+    letters = letters.upper()
+    return (
+        sum(
+            ((ord(letter) - ord("A") + 1) * (26**i))
+            for i, letter in enumerate(reversed(letters))
+        )
+        - 1
+    )

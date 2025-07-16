@@ -26,5 +26,5 @@ from .main import (
     Recipient,
     Mailer,
 )
-from .utils import add_cmd_arguments
+from .utils import add_cmd_arguments, col
 from .address import Address
