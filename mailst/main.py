@@ -26,32 +26,77 @@ import os.path
 import time
 import datetime
 import sys
+import locale
 
 from . import address
 from . import sent_log
 
 
 class Column:
-    def __init__(self, key, is_email=False, is_file=False, is_full_name=False):
+    def __init__(
+        self,
+        key,
+        is_email=False,
+        is_file=False,
+        is_full_name=False,
+        spreadsheet_column=None,
+        spreadsheet_column_validation_func=None,
+        value_computation_func=None,
+    ):
         if sum(bool(x) for x in (is_email, is_file, is_full_name)) > 1:
-            raise ValueError("is_full_name, is_email and is_file are " "incompatible")
+            raise ValueError(
+                f"Column {key}: is_full_name, is_email and is_file are incompatible"
+            )
+        if (
+            spreadsheet_column_validation_func is not None
+            and spreadsheet_column is None
+        ):
+            raise ValueError(
+                f"Column {key}: only spreadsheet columns can have a validation function"
+            )
         self.key = key
         self.is_email = is_email
         self.is_file = is_file
         self.is_full_name = is_full_name
+        self.spreadsheet_column = spreadsheet_column
+        self.spreadsheet_column_validation_func = spreadsheet_column_validation_func
+        self.value_computation_func = value_computation_func
 
     def as_dict(self, value):
         return {self.key: value}
 
+    @staticmethod
+    def _validate_kwargs(true_kwargs, false_kwargs, kwargs):
+        for key in true_kwargs:
+            if not key in kwargs:
+                kwargs[key] = True
+            elif not kwargs[key]:
+                raise ValueError(f"Argument {key} should be True")
+        for key in false_kwargs:
+            if not key in kwargs:
+                kwargs[key] = False
+            elif kwargs[key]:
+                raise ValueError(f"Argument {key} should be False")
+
 
 class EmailColumn(Column):
-    def __init__(self, key):
-        super().__init__(key, is_email=True)
+    def __init__(self, key, **kwargs):
+        Column._validate_kwargs(
+            true_kwargs=["is_email"],
+            false_kwargs=["is_file", "is_full_name"],
+            kwargs=kwargs,
+        )
+        super().__init__(key, **kwargs)
 
 
 class NameColumn(Column):
-    def __init__(self, key, is_full_name=False):
-        super().__init__(key, is_full_name=is_full_name)
+    def __init__(self, key, **kwargs):
+        Column._validate_kwargs(
+            true_kwargs=[],
+            false_kwargs=["is_email", "is_file"],
+            kwargs=kwargs,
+        )
+        super().__init__(key, **kwargs)
 
     def as_dict(self, name):
         d = {self.key: name}
@@ -72,58 +117,90 @@ class NameColumn(Column):
 
 
 class FullNameColumn(NameColumn):
-    def __init__(self, key):
-        super().__init__(key, is_full_name=True)
+    def __init__(self, key, **kwargs):
+        Column._validate_kwargs(
+            true_kwargs=["is_full_name"],
+            false_kwargs=["is_email", "is_file"],
+            kwargs=kwargs,
+        )
+        super().__init__(key, **kwargs)
 
 
 class GradeColumn(Column):
-    def __init__(self, key, max_grade=None, min_grade=0.0, check_max=True):
+    def __init__(
+        self,
+        key,
+        max_grade=None,
+        min_grade=0.0,
+        check_max=True,
+        locale_format=None,
+        **kwargs,
+    ):
         self.max_grade = max_grade
         self.min_grade = min_grade
         self.check_max = check_max
-        super().__init__(key)
+        self.locale_format = locale_format
+        Column._validate_kwargs(
+            true_kwargs=[],
+            false_kwargs=["is_email", "is_file", "is_full_name"],
+            kwargs=kwargs,
+        )
+        super().__init__(key, **kwargs)
 
     def as_dict(self, grade):
-        d = {self.key: self.grade(grade)}
+        d = {self.key: self._grade(grade)}
         if self.max_grade is not None:
-            d[self.key + "_max"] = self.max_grade
+            d[self.key + "_max"] = self._grade(self.max_grade)
         return d
 
-    def grade(self, value):
-        if value == "":
-            result = "-"
+    def _grade(self, value):
+        if isinstance(value, str):
+            if value == "":
+                result = None
+            else:
+                original_value = value
+                if "," in value:
+                    value = re.sub(",", ".", value)
+                try:
+                    result = decimal.Decimal(value)
+                except decimal.InvalidOperation:
+                    msg = "Wrong decimal format: {}".format(repr(original_value))
+                    raise ValueError(msg)
         else:
-            original_value = value
-            if "," in value:
-                value = re.sub(",", ".", value)
-            try:
-                result = decimal.Decimal(value)
-            except decimal.InvalidOperation:
-                msg = "Wrong decimal format: {}".format(repr(original_value))
-                raise ValueError(msg)
-            if (
-                self.check_max
-                and self.max_grade is not None
-                and result > self.max_grade
-            ):
-                msg = "Grade {} for {} greater than its maximum value {}".format(
-                    result, self.key, self.max_grade
-                )
-                raise ValueError(msg)
-            if self.min_grade is not None and result < self.min_grade:
-                msg = "Grade {} for {} lower than its minimum value {}".format(
-                    result, self.key, self.min_grade
-                )
-                raise ValueError(msg)
+            result = value
+        if (
+            result is not None
+            and self.check_max
+            and self.max_grade is not None
+            and result > self.max_grade
+        ):
+            msg = "Grade {} for {} greater than its maximum value {}".format(
+                result, self.key, self.max_grade
+            )
+            raise ValueError(msg)
+        if self.min_grade is not None and result < self.min_grade:
+            msg = "Grade {} for {} lower than its minimum value {}".format(
+                result, self.key, self.min_grade
+            )
+            raise ValueError(msg)
+        if self.locale_format is not None and result is not None:
+            result = locale.format_string(self.locale_format, result)
         return result
 
 
 class FileColumn(Column):
-    def __init__(self, key, base_path=None, filename_template=None, content_type=None):
+    def __init__(
+        self, key, base_path=None, filename_template=None, content_type=None, **kwargs
+    ):
         self.base_path = base_path
         self.filename_template = filename_template
         self.content_type = content_type
-        super().__init__(key, is_file=True)
+        Column._validate_kwargs(
+            true_kwargs=["is_file"],
+            false_kwargs=["is_email", "is_full_name"],
+            kwargs=kwargs,
+        )
+        super().__init__(key, **kwargs)
 
     def as_dict(self, value):
         return {self.key: AttachmentFile(self._get_filename(value), self.content_type)}

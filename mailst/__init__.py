@@ -28,3 +28,4 @@ from .main import (
 )
 from .utils import add_cmd_arguments, col
 from .address import Address
+from .spreadsheet import load_data_from_xlsx
