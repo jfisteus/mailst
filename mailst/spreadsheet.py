@@ -37,7 +37,8 @@ def load_data_from_xlsx(columns, spreadsheet_path, recipient_class=Recipient):
         # Step 2: compute the values of the columns that have a compute_func defined
         for column in [c for c in columns if c.value_computation_func is not None]:
             value = column.value_computation_func(recipient)
-            recipient.set_column(column, value)
+            if value is not None:
+                recipient.set_column(column, value)
         recipients.append(recipient)
         if first_line is None:
             first_line = row_index
