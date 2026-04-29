@@ -329,6 +329,11 @@ class Mailer:
         smtp_client = smtplib.SMTP(self.smtp_server)
         num_emails = 0
         for recipient in self._filter_recipients():
+            if delay is not None and num_emails:
+                time_1 = time.monotonic()
+                if time_1 - time_0 < delay:
+                    time.sleep(delay - (time_1 - time_0))
+            time_0 = time.monotonic()
             message = self._build_message(recipient, alt_to_address)
             if print_mails:
                 print(message)
@@ -363,8 +368,6 @@ class Mailer:
             num_emails += 1
             if max_num_emails and max_num_emails <= num_emails:
                 break
-            if delay is not None:
-                time.sleep(delay)
         smtp_client.quit()
 
     def test(self, max_num_emails=0):
